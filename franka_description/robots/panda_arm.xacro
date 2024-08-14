@@ -310,5 +310,15 @@
       <parent link="${arm_id}_link7"/>
       <child link="${arm_id}_link8"/>
     </joint>
+  
+    <!-- Adding rs-sensor -->
+    <link name="camera_depth_optical_frame" />
+    <joint name="panda_to_camera" type="fixed">
+        <parent link="panda_link0" />
+        <child link="camera_depth_optical_frame" />
+        <origin xyz="1 0 0.4" rpy="-1.57 0 1.57" />
+    </joint>
+
   </xacro:macro>
+  
 </robot>

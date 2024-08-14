@@ -28,6 +28,8 @@ from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 import yaml
 
+from launch_ros.descriptions import ComposableNode
+from launch_ros.actions import ComposableNodeContainer
 
 def load_yaml(package_name, file_path):
     package_path = get_package_share_directory(package_name)
@@ -123,6 +125,77 @@ def generate_launch_description():
         'publish_state_updates': True,
         'publish_transforms_updates': True,
     }
+
+    common_hybrid_planning_param = load_yaml(
+        "moveit_hybrid_planning", "config/common_hybrid_planning_params.yaml"
+    )
+    global_planner_param = load_yaml(
+        "moveit_hybrid_planning", "config/global_planner.yaml"
+    )
+    local_planner_param = load_yaml(
+        "moveit_hybrid_planning", "config/panda_local_planner.yaml"
+    )
+    hybrid_planning_manager_param = load_yaml(
+        "moveit_hybrid_planning", "config/hybrid_planning_manager.yaml"
+    )
+
+    # Generate launch description with multiple components
+    container = ComposableNodeContainer(
+        name="hybrid_planning_container",
+        namespace="/",
+        package="rclcpp_components",
+        executable="component_container_mt",
+        composable_node_descriptions=[
+            ComposableNode(
+                package="moveit_hybrid_planning",
+                plugin="moveit::hybrid_planning::GlobalPlannerComponent",
+                name="global_planner",
+                parameters=[
+                    common_hybrid_planning_param,
+                    global_planner_param,
+                    robot_description,
+                    robot_description_semantic,
+                    kinematics_yaml,
+                    ompl_planning_pipeline_config,
+                    moveit_controllers,
+                ],
+            ),
+            ComposableNode(
+                package="moveit_hybrid_planning",
+                plugin="moveit::hybrid_planning::LocalPlannerComponent",
+                name="local_planner",
+                parameters=[
+                    common_hybrid_planning_param,
+                    local_planner_param,
+                    robot_description,
+                    robot_description_semantic,
+                    kinematics_yaml,
+                ],
+            ),
+            ComposableNode(
+                package="moveit_hybrid_planning",
+                plugin="moveit::hybrid_planning::HybridPlanningManager",
+                name="hybrid_planning_manager",
+                parameters=[
+                    common_hybrid_planning_param,
+                    hybrid_planning_manager_param,
+                ],
+            ),
+        ],
+        output="screen",
+    )
+
+    demo_node = Node(
+        package="moveit_hybrid_planning",
+        executable="panda_demo_node",
+        name="panda_demo_node",
+        output="screen",
+        parameters=[
+            robot_description,
+            robot_description_semantic,
+            common_hybrid_planning_param,
+        ],
+    )
 
     # Start the actual move_group node/action server
     run_move_group_node = Node(
@@ -250,11 +323,13 @@ def generate_launch_description():
          db_arg,
          rviz_node,
          robot_state_publisher,
-         run_move_group_node,
+        #  run_move_group_node,
          ros2_control_node,
          mongodb_server_node,
          joint_state_publisher,
-         gripper_launch_file
+         gripper_launch_file,
+         container,
+         demo_node
          ]
         + load_controllers
     )
