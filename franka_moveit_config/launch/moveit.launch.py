@@ -1,20 +1,3 @@
-#  Copyright (c) 2021 Franka Emika GmbH
-#
-#  Licensed under the Apache License, Version 2.0 (the "License");
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-
-# This file is an adapted version of
-# https://github.com/ros-planning/moveit_resources/blob/ca3f7930c630581b5504f3b22c40b4f82ee6369d/panda_moveit_config/launch/demo.launch.py
-
 import os
 
 from ament_index_python.packages import get_package_share_directory
@@ -26,10 +9,10 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
-import yaml
-
 from launch_ros.descriptions import ComposableNode
 from launch_ros.actions import ComposableNodeContainer
+import yaml
+
 
 def load_yaml(package_name, file_path):
     package_path = get_package_share_directory(package_name)
@@ -126,6 +109,7 @@ def generate_launch_description():
         'publish_transforms_updates': True,
     }
 
+    # Hybrid Planning components
     common_hybrid_planning_param = load_yaml(
         "moveit_hybrid_planning", "config/common_hybrid_planning_params.yaml"
     )
@@ -139,10 +123,9 @@ def generate_launch_description():
         "moveit_hybrid_planning", "config/hybrid_planning_manager.yaml"
     )
 
-    # Generate launch description with multiple components
     container = ComposableNodeContainer(
         name="hybrid_planning_container",
-        namespace="/",
+        namespace="/test",
         package="rclcpp_components",
         executable="component_container_mt",
         composable_node_descriptions=[
@@ -185,6 +168,7 @@ def generate_launch_description():
         output="screen",
     )
 
+    # Add the demo node for hybrid planning
     demo_node = Node(
         package="moveit_hybrid_planning",
         executable="panda_demo_node",
@@ -289,6 +273,7 @@ def generate_launch_description():
         parameters=[
             {'source_list': ['franka/joint_states', 'panda_gripper/joint_states'], 'rate': 30}],
     )
+
     robot_arg = DeclareLaunchArgument(
         robot_ip_parameter_name,
         description='Hostname or IP address of the robot.')
@@ -308,6 +293,7 @@ def generate_launch_description():
         default_value='false',
         description="Fake sensor commands. Only valid when '{}' is true".format(
             use_fake_hardware_parameter_name))
+
     gripper_launch_file = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([PathJoinSubstitution(
             [FindPackageShare('franka_gripper'), 'launch', 'gripper.launch.py'])]),
@@ -315,6 +301,7 @@ def generate_launch_description():
                           use_fake_hardware_parameter_name: use_fake_hardware}.items(),
         condition=IfCondition(load_gripper)
     )
+
     return LaunchDescription(
         [robot_arg,
          use_fake_hardware_arg,
@@ -323,13 +310,13 @@ def generate_launch_description():
          db_arg,
          rviz_node,
          robot_state_publisher,
-        #  run_move_group_node,
+         run_move_group_node,
          ros2_control_node,
          mongodb_server_node,
          joint_state_publisher,
          gripper_launch_file,
-         container,
-         demo_node
+         container,  # Added the hybrid planning container
+         demo_node  # Added the hybrid planning demo node
          ]
         + load_controllers
     )
